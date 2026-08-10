@@ -1,5 +1,3 @@
-# drf-nplus — Week 1 MVP
-
 A DRF serializer-aware N+1 detector. This week's goal: reproduce the N+1 problem in a toy blog project and build minimal middleware that counts SQL queries per request.
 
 ## Setup
@@ -59,4 +57,3 @@ drf_nplus_project/
 ├── manage.py
 └── requirements.txt
 ```
-# drf_nplus
