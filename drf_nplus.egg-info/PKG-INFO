@@ -1,3 +1,26 @@
+Metadata-Version: 2.4
+Name: drf-nplus
+Version: 0.1.0
+Summary: A DRF serializer-aware N+1 query detector for Django.
+Author: Ahmed
+License: MIT
+Project-URL: Source, https://github.com/
+Keywords: django,drf,django-rest-framework,n+1,orm,performance,debugging
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 5.0
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Software Development :: Debuggers
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: Django>=4.2
+Requires-Dist: djangorestframework>=3.14
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: pytest-django>=4.8; extra == "dev"
+
 # drf-nplus
 
 A DRF serializer-aware N+1 query detector for Django.
