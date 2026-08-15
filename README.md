@@ -18,12 +18,6 @@ serializer field that triggered it *and suggests the ORM fix*:
 pip install drf-nplus
 ```
 
-Or from source:
-
-```bash
-pip install -e /path/to/drf_nplus_project
-```
-
 ## Integrate
 
 Add the middleware to your Django `settings.py`:
