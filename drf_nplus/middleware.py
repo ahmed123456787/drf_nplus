@@ -1,6 +1,7 @@
 """
 Per-request SQL query counter that attributes each query to the DRF
-serializer field path that triggered it.
+serializer field path that triggered it — and, where possible, suggests
+the ORM fix.
 
 Pairs with `drf_nplus.patches`, which pushes the current field onto a
 ContextVar stack while DRF resolves it. When a query fires, we snapshot the
@@ -14,6 +15,7 @@ from collections import Counter, defaultdict
 from django.db import connections
 
 from . import context, patches, settings as conf
+from .suggest import suggest_fix
 
 
 class QueryCountMiddleware:
@@ -32,10 +34,10 @@ class QueryCountMiddleware:
         if not self.enabled or request.path.startswith(self.ignore_paths):
             return self.get_response(request)
 
-        queries: list[tuple[str, str | None]] = []
+        queries: list[tuple[str, tuple]] = []
 
         def tracker(execute, sql, params, many, ctx):
-            queries.append((sql, context.current_path()))
+            queries.append((sql, context.current_segments()))
             return execute(sql, params, many, ctx)
 
         start = time.perf_counter()
@@ -50,7 +52,7 @@ class QueryCountMiddleware:
             response["X-DRF-Queries"] = str(len(queries))
             response["X-DRF-Query-Time-Ms"] = f"{elapsed_ms:.1f}"
             if offenders:
-                response["X-DRF-NPlus-Fields"] = ",".join(p for p, _, _ in offenders)
+                response["X-DRF-NPlus-Fields"] = ",".join(p for p, _, _, _ in offenders)
         return response
 
     def _log(self, request, queries, elapsed_ms, offenders):
@@ -65,17 +67,22 @@ class QueryCountMiddleware:
         self.logger.log(self.log_level, "\n".join(lines))
 
     def _offenders(self, queries):
-        by_path: dict[str, list[str]] = defaultdict(list)
-        for sql, path in queries:
+        by_path: dict[str, list] = defaultdict(list)
+        segs_by_path: dict[str, tuple] = {}
+        for sql, segs in queries:
+            path = _path_str(segs)
             if path is None:
                 continue
             by_path[path].append(sql)
+            segs_by_path.setdefault(path, segs)
+
         offenders = []
         for path, sqls in by_path.items():
             counts = Counter(sqls)
             for sql, n in counts.items():
                 if n >= self.threshold:
-                    offenders.append((path, n, sql))
+                    fix = suggest_fix(segs_by_path[path])
+                    offenders.append((path, n, sql, fix))
         return offenders
 
     @staticmethod
@@ -86,16 +93,31 @@ class QueryCountMiddleware:
     @staticmethod
     def _per_field_summary(queries):
         by_path = defaultdict(list)
-        for sql, path in queries:
-            by_path[path or "(unattributed)"].append(sql)
+        segs_by_path: dict[str, tuple] = {}
+        for sql, segs in queries:
+            path = _path_str(segs) or "(unattributed)"
+            by_path[path].append(sql)
+            if segs:
+                segs_by_path.setdefault(path, segs)
 
         lines = []
         for path, sqls in sorted(by_path.items(), key=lambda kv: -len(kv[1])):
             n = len(sqls)
             unique = len(set(sqls))
-            marker = "  ← possible N+1" if n > 1 and unique == 1 else ""
-            lines.append(f"{path}: {n} queries{marker}")
+            suffix = ""
+            if n > 1 and unique == 1:
+                suffix = "  ← possible N+1"
+                fix = suggest_fix(segs_by_path.get(path, ()))
+                if fix:
+                    suffix += f" — add {fix}"
+            lines.append(f"{path}: {n} queries{suffix}")
         return lines
+
+
+def _path_str(segs) -> str | None:
+    if not segs:
+        return None
+    return ".".join(s.name for s in segs)
 
 
 class _wrap_all_connections:

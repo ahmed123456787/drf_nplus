@@ -16,6 +16,7 @@ from contextlib import contextmanager
 from django.db import connections
 
 from . import context, patches
+from .suggest import suggest_fix
 
 
 class NPlusOneDetected(AssertionError):
@@ -33,10 +34,15 @@ def assert_no_nplus(threshold: int = 2):
     """
     patches.install()
 
-    by_path: dict[str | None, list[str]] = defaultdict(list)
+    by_path: dict[str, list[str]] = defaultdict(list)
+    segs_by_path: dict[str, tuple] = {}
 
     def tracker(execute, sql, params, many, ctx):
-        by_path[context.current_path()].append(sql)
+        segs = context.current_segments()
+        if segs:
+            path = ".".join(s.name for s in segs)
+            by_path[path].append(sql)
+            segs_by_path.setdefault(path, segs)
         return execute(sql, params, many, ctx)
 
     wrappers = [connections[alias].execute_wrapper(tracker) for alias in connections]
@@ -50,8 +56,6 @@ def assert_no_nplus(threshold: int = 2):
 
     offenders = []
     for path, sqls in by_path.items():
-        if path is None:
-            continue
         counts: dict[str, int] = {}
         for sql in sqls:
             counts[sql] = counts.get(sql, 0) + 1
@@ -62,5 +66,7 @@ def assert_no_nplus(threshold: int = 2):
     if offenders:
         lines = ["N+1 detected:"]
         for path, n, sql in offenders:
-            lines.append(f"  {path}: {n}× {sql[:80]}")
+            fix = suggest_fix(segs_by_path.get(path, ()))
+            hint = f" — add {fix}" if fix else ""
+            lines.append(f"  {path}: {n}× {sql[:80]}{hint}")
         raise NPlusOneDetected("\n".join(lines))

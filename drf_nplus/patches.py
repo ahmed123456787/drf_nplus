@@ -41,13 +41,18 @@ def uninstall() -> None:
 
 
 def _wrapped_to_representation(self, instance):
+    parent_model = _model_of(self)
     root_token = None
     if context.is_empty():
-        root_token = context.push(type(self).__name__)
+        root_token = context.push(type(self).__name__, parent_model=parent_model)
     try:
         ret = {}
         for field in self._readable_fields:
-            token = context.push(field.field_name)
+            token = context.push(
+                field.field_name,
+                parent_model=parent_model,
+                source=field.source or field.field_name,
+            )
             try:
                 try:
                     attribute = field.get_attribute(instance)
@@ -67,3 +72,8 @@ def _wrapped_to_representation(self, instance):
     finally:
         if root_token is not None:
             context.reset(root_token)
+
+
+def _model_of(serializer):
+    meta = getattr(serializer, "Meta", None)
+    return getattr(meta, "model", None) if meta else None

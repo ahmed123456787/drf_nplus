@@ -3,12 +3,12 @@
 A DRF serializer-aware N+1 query detector for Django.
 
 Unlike a generic query counter, `drf-nplus` attributes each SQL query to the
-serializer field that triggered it, so a report reads:
+serializer field that triggered it *and suggests the ORM fix*:
 
 ```
 [drf-nplus] GET /posts/ → 201 queries in 340.2ms | 2 repeated SQL templates (possible N+1)
-  PostSerializer.author: 100 queries  ← possible N+1
-  PostSerializer.tags: 100 queries  ← possible N+1
+  PostSerializer.author: 100 queries  ← possible N+1 — add .select_related("author")
+  PostSerializer.tags: 100 queries  ← possible N+1 — add .prefetch_related("tags")
   PostSerializer: 1 queries
 ```
 
@@ -72,7 +72,25 @@ LOGGING = {
 
 ## Use in tests
 
-Fail a test if any serializer field fires the same SQL template twice:
+Installing `drf-nplus` auto-registers a pytest plugin. Two ways to guard tests:
+
+**Per-test marker:**
+
+```python
+import pytest
+
+@pytest.mark.no_nplus
+def test_post_list_is_efficient(db):
+    client.get("/posts/")
+
+# Or with a custom threshold
+@pytest.mark.no_nplus(threshold=5)
+def test_moderate(db): ...
+```
+
+**Suite-wide:** `pytest --nplus-strict` (applies the guard to every test).
+
+**Manual context manager** (for finer control):
 
 ```python
 from drf_nplus.testing import assert_no_nplus
@@ -85,8 +103,8 @@ def test_post_list_is_efficient(db):
         PostSerializer(qs, many=True).data
 ```
 
-Raises `drf_nplus.NPlusOneDetected` (an `AssertionError` subclass) with the
-offending field paths and SQL. Adjust sensitivity with `threshold=`.
+All three raise `drf_nplus.NPlusOneDetected` (an `AssertionError` subclass)
+with the offending field paths, SQL, and suggested fix.
 
 ## How it works
 

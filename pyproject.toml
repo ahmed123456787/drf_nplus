@@ -34,5 +34,9 @@ dev = [
 [project.urls]
 Source = "https://github.com/"
 
+[project.entry-points.pytest11]
+drf_nplus = "drf_nplus.pytest_plugin"
+
 [tool.setuptools]
 packages = ["drf_nplus"]
+license-files = ["LICENSE"]
