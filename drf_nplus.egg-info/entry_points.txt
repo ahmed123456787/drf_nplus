@@ -1,2 +1,0 @@
-[pytest11]
-drf_nplus = drf_nplus.pytest_plugin

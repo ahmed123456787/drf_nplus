@@ -9,7 +9,7 @@ description = "A DRF serializer-aware N+1 query detector for Django."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "Ahmed" }]
+authors = [{ name = "Ahmed", email = "animeweeabo0xr@gmail.com" }]
 keywords = ["django", "drf", "django-rest-framework", "n+1", "orm", "performance", "debugging"]
 classifiers = [
     "Framework :: Django",
@@ -30,9 +30,6 @@ dev = [
     "pytest>=8.0",
     "pytest-django>=4.8",
 ]
-
-[project.urls]
-Source = "https://github.com/"
 
 [project.entry-points.pytest11]
 drf_nplus = "drf_nplus.pytest_plugin"
